@@ -21,7 +21,7 @@ TOKEN = auth['token']
 V = auth['version']
 FILENAMES = ['users', 'posts', 'likes', 'comments']
 NOW = datetime.datetime.now()
-HOW_OFTEN = 2
+HOW_OFTEN = 7
 
 def vk(method, params=""):
     if params:
@@ -204,7 +204,6 @@ class GetGroupDataTask(luigi.Task):
 
 
 class ExportToSheetsTask(luigi.Task):
-
     groups = luigi.ListParameter()
 
     @property
@@ -238,8 +237,9 @@ class ExportToSheetsTask(luigi.Task):
     def requires(self):
         return AggregateGroupDataTask(self.groups)
 
-    #def output(self):
-    #    return
+    def output(self):
+        return luigi.LocalTarget('process.log')
+
     def get_last_modified(self, file_id):
         """Based on Google Drive API v3"""
 
@@ -254,7 +254,7 @@ class ExportToSheetsTask(luigi.Task):
 
     def complete(self):
         outputs = self.get_output_files()
-        return all(map(lambda out: (NOW - out[1]).days < 1, outputs.values()))
+        return all(map(lambda out: (NOW - out[1]).days <= HOW_OFTEN, outputs.values()))
 
     def run(self):
         #gc = self.gc
@@ -263,23 +263,24 @@ class ExportToSheetsTask(luigi.Task):
         sheets = self.get_output_files()
 
         mode = False
-        for fname, pred in sheets.items():
-            file_id, last_modified = pred
-            if (NOW - last_modified).days >= HOW_OFTEN:
+        with self.output().open('w') as outfile:
+
+            for fname, pred in sheets.items():
+                file_id, last_modified = pred
+                #if (NOW - last_modified).days >= HOW_OFTEN:
                 with open(fname) as csv_file:
                     csv_content = csv.reader(csv_file)
                     mode = True if csv_file.name == 'users.csv' else mode
                     self.gc.login()
                     try:
                         self.csv_to_sheet(csv_content, file_id, add_mode=mode)
-                        print('Экспортирую %s' %file_id)
                     except Exception as e:
                         print(e)
-            else:
-                print((NOW - last_modified).days)
-                continue
+                #else:
+                    #print('since the last report passed: %d' %(NOW - last_modified).days)
+                    #continue
+                print(f'{file_id}\t{fname}\t{last_modified}', file=outfile)
 
-#        for input in self.input():
 #            with input.open('r') as csv_file:
 #                if csv_file.name != 'users.csv':
 #                    #content = csv_file.read()
@@ -299,3 +300,4 @@ if __name__ == '__main__':
 
     """
     luigi.run()
+
