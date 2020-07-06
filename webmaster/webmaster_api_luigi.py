@@ -29,7 +29,6 @@ def str_to_bool(i):
 
 class ExportToSheetsTask(luigi.Task):
 
-    # exist = luigi.Parameter()
     @property
     def gc(self):
         return gspread.service_account()
@@ -52,9 +51,6 @@ class ExportToSheetsTask(luigi.Task):
 
     def requires(self):
         return GetDataTask() # if str_to_bool(self.exist) else None
-
-    #def output(self):
-    #    return
 
     def run(self):
         sheets = {f"{x['name']}.csv": x['id']
@@ -173,11 +169,8 @@ class GetDataTask(luigi.Task):
 
     def run(self):
         data_frames = self.get_data()
-        #replaced = [False, False, False, True, True, True]
 
         for filename, df in zip(self.output(), data_frames):
-            #mode = 'a' if os.path.exists(filename) and not is_replaced else 'w'
-            #header = False if mode == 'a' else True
             with filename.open('w') as csv_file:
                 df.to_csv(csv_file.name, index=False)
 
